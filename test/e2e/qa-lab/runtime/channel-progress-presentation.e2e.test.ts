@@ -1778,7 +1778,16 @@ describe("channel progress presentation through an isolated Gateway", () => {
       expect(progressText).toContain(HEADLINE);
       const slackCard = channel === "slack" && !native && !compact;
       const expectedToolRow = slackCard ? slackCardToolRow : toolRow;
-      if (!tools) {
+      if (!tools && channel === "discord") {
+        const statusLines = progressText
+          .split("\n")
+          .map((line) => line.trim())
+          .filter((line) => line && line !== HEADLINE);
+        expect(statusLines.length).toBeGreaterThan(0);
+        for (const line of statusLines) {
+          expect(line).toMatch(/^(?:(?:Exec|Bash): running|Last activity: (?:Exec|Bash))$/u);
+        }
+      } else if (!tools) {
         expect(progressText).not.toMatch(expectedToolRow);
       } else if (channel !== "slack" || !native) {
         expect(progressText).toMatch(expectedToolRow);
