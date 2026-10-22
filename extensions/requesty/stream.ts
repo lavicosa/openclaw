@@ -16,7 +16,7 @@ export function wrapRequestyProviderStream(
     return undefined;
   }
   const underlying = ctx.streamFn;
-  return (model, context, options) =>
+  const wrapped: NonNullable<ProviderWrapStreamFnContext["streamFn"]> = (model, context, options) =>
     underlying(model, context, {
       ...options,
       headers: resolveProviderRequestHeaders({
@@ -30,4 +30,5 @@ export function wrapRequestyProviderStream(
         precedence: "defaults-win",
       }),
     });
+  return Object.assign(wrapped, { preservesGenericCompatibility: true });
 }

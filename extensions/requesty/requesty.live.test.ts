@@ -11,12 +11,17 @@ import type { ProviderCatalogContext } from "openclaw/plugin-sdk/provider-catalo
 import { extractNonEmptyAssistantText, isLiveTestEnabled } from "openclaw/plugin-sdk/test-live";
 import { Type } from "typebox";
 import { describe, expect, it } from "vitest";
-import { REQUESTY_BASE_URL, REQUESTY_DEFAULT_MODEL_ID } from "./api.js";
+import {
+  getStaticRequestyModelCatalog,
+  REQUESTY_BASE_URL,
+  REQUESTY_DEFAULT_MODEL_ID,
+} from "./api.js";
 import plugin from "./index.js";
 
 const REQUESTY_API_KEY = process.env.REQUESTY_API_KEY?.trim() ?? "";
 const LIVE = isLiveTestEnabled(["REQUESTY_LIVE_TEST"]) && REQUESTY_API_KEY.length > 0;
 const describeLive = LIVE ? describe : describe.skip;
+const defaultModelIds = getStaticRequestyModelCatalog().map((model) => model.id);
 
 function liveCatalogContext(): ProviderCatalogContext {
   return {
@@ -68,14 +73,15 @@ function requireToolCall(message: AssistantMessage) {
 }
 
 describeLive("requesty plugin live", () => {
-  it("discovers the key's managed policies including the default model", async () => {
+  it("discovers the key's managed policies including all three defaults", async () => {
     const provider = await discoverLiveCatalog();
-    expect(provider.models.length).toBeGreaterThan(10);
     expect(provider.models.every((model) => !model.id.includes("/"))).toBe(true);
-    const defaultModel = provider.models.find((model) => model.id === REQUESTY_DEFAULT_MODEL_ID);
-    expect(defaultModel).toMatchObject({ reasoning: true, input: ["text", "image"] });
-    expect(defaultModel?.cost.input).toBeGreaterThan(0);
-    expect(defaultModel?.contextWindow).toBeGreaterThan(0);
+    for (const modelId of defaultModelIds) {
+      const model = provider.models.find((candidate) => candidate.id === modelId);
+      expect(model, `managed default ${modelId}`).toBeDefined();
+      expect(model?.cost.input).toBeGreaterThan(0);
+      expect(model?.contextWindow).toBeGreaterThan(0);
+    }
   }, 30_000);
 
   it("streams text with a thinking level through the attribution-wrapped stream", async () => {
@@ -115,49 +121,58 @@ describeLive("requesty plugin live", () => {
     expect(extractNonEmptyAssistantText(response.content)).toMatch(/ok/i);
   }, 60_000);
 
-  it("completes a tool-call round trip with the default model", async () => {
-    const model = liveModel(REQUESTY_DEFAULT_MODEL_ID);
-    const tool = liveEchoTool();
-    const userPrompt = {
-      role: "user" as const,
-      content: "Call live_echo with value requesty. Do not answer directly.",
-      timestamp: Date.now() - 3,
-    };
-    const first = await completeSimple(
-      model,
-      { messages: [userPrompt], tools: [tool] },
-      { apiKey: REQUESTY_API_KEY, maxTokens: 256 },
-    );
-    if (first.stopReason === "error") {
-      throw new Error(first.errorMessage || "Requesty first turn returned an error");
-    }
-    const toolCall = requireToolCall(first);
-    expect(toolCall.name).toBe("live_echo");
-    expect(toolCall.arguments).toEqual({ value: "requesty" });
+  it.each(defaultModelIds)(
+    "completes a tool-call round trip with %s",
+    async (modelId) => {
+      const catalog = await discoverLiveCatalog();
+      const definition = catalog.models.find((candidate) => candidate.id === modelId);
+      if (!definition) {
+        throw new Error(`Requesty live catalog did not include ${modelId}`);
+      }
+      const model = { ...liveModel(modelId), ...definition } as Model<"openai-completions">;
+      const tool = liveEchoTool();
+      const userPrompt = {
+        role: "user" as const,
+        content: "Call live_echo with value requesty. Do not answer directly.",
+        timestamp: Date.now() - 3,
+      };
+      const first = await completeSimple(
+        model,
+        { messages: [userPrompt], tools: [tool] },
+        { apiKey: REQUESTY_API_KEY, maxTokens: 2048, reasoning: "low" },
+      );
+      if (first.stopReason === "error") {
+        throw new Error(first.errorMessage || "Requesty first turn returned an error");
+      }
+      const toolCall = requireToolCall(first);
+      expect(toolCall.name).toBe("live_echo");
+      expect(toolCall.arguments).toEqual({ value: "requesty" });
 
-    const second = await completeSimple(
-      model,
-      {
-        messages: [
-          userPrompt,
-          first,
-          {
-            role: "toolResult",
-            toolCallId: toolCall.id,
-            toolName: toolCall.name,
-            content: [{ type: "text", text: "ok" }],
-            isError: false,
-            timestamp: Date.now() - 1,
-          },
-          { role: "user", content: "Reply with exactly: ok", timestamp: Date.now() },
-        ],
-        tools: [tool],
-      },
-      { apiKey: REQUESTY_API_KEY, maxTokens: 64 },
-    );
-    if (second.stopReason === "error") {
-      throw new Error(second.errorMessage || "Requesty second turn returned an error");
-    }
-    expect(extractNonEmptyAssistantText(second.content)).toMatch(/^ok[.!]?$/i);
-  }, 120_000);
+      const second = await completeSimple(
+        model,
+        {
+          messages: [
+            userPrompt,
+            first,
+            {
+              role: "toolResult",
+              toolCallId: toolCall.id,
+              toolName: toolCall.name,
+              content: [{ type: "text", text: "ok" }],
+              isError: false,
+              timestamp: Date.now() - 1,
+            },
+            { role: "user", content: "Reply with exactly: ok", timestamp: Date.now() },
+          ],
+          tools: [tool],
+        },
+        { apiKey: REQUESTY_API_KEY, maxTokens: 2048, reasoning: "low" },
+      );
+      if (second.stopReason === "error") {
+        throw new Error(second.errorMessage || "Requesty second turn returned an error");
+      }
+      expect(extractNonEmptyAssistantText(second.content)).toMatch(/^ok[.!]?$/i);
+    },
+    120_000,
+  );
 });

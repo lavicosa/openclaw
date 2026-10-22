@@ -76,7 +76,9 @@ export function projectRequestyModels(rows: readonly unknown[]): ModelDefinition
       continue;
     }
     const id = row.id.trim();
-    if (!id || discoveredIds.has(id) || row.api !== "chat") {
+    // Model selection interprets @suffix as an auth profile. Do not advertise
+    // regional policies until selection can preserve their routing suffix.
+    if (!id || id.includes("@") || discoveredIds.has(id) || row.api !== "chat") {
       continue;
     }
     models.push(toModelDefinition(row, id));

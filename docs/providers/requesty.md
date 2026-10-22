@@ -71,8 +71,12 @@ Once a key is configured, OpenClaw queries `GET https://router.requesty.ai/v1/mo
 with that key and publishes the managed policies your key can route to, with Requesty's live
 prices, context window, output limit, vision, and reasoning flags. Managed policies are
 addressed by bare name (`claude-sonnet-5-5`, `gpt-6-luna`, `gemini-3.8-flash`), and
-Requesty picks the hosting provider; `@eu` variants pin EU routing. When discovery is
-unavailable, the static catalog keeps those three defaults addressable.
+Requesty picks the hosting provider. When discovery is unavailable, the static catalog
+keeps those three defaults addressable.
+
+Regional policies with `@` suffixes are omitted from discovery: OpenClaw currently interprets
+those suffixes as auth-profile selectors, not routing regions. Do not select or
+configure `@eu` policies in OpenClaw; they cannot currently guarantee EU routing.
 
 Run `/models requesty` or `openclaw models list --provider requesty` to see the list for your
 key.
@@ -97,7 +101,7 @@ key.
     Discovery lists Requesty's managed policies, which route a bare model name to the best
     available hosting provider under your organization's routing and compliance settings.
     To pin a specific host instead (`vertex/claude-sonnet-4-6`,
-    `bedrock/claude-sonnet-4-6@eu-central-1`), add that id under
+    `bedrock/claude-sonnet-4-6`), add that id under
     `models.providers.requesty.models` in your config; OpenClaw publishes authored rows
     alongside the discovered policies.
   </Accordion>
@@ -114,9 +118,10 @@ key.
   </Accordion>
 
   <Accordion title="Prompt caching">
-    Claude policies, including `@eu` variants and authored hosting-prefixed ids, are
-    eligible for Anthropic prompt-cache TTL hints. Discovered prices include Requesty's cache read and cache write rates, so
-    cost tracking reflects cached turns.
+    OpenClaw does not send Anthropic `cache_control` markers or enable Requesty's
+    `auto_cache`. Any caching is controlled by Requesty and the upstream provider.
+    Discovered prices include cache read and cache write rates for usage accounting;
+    they do not enable caching.
   </Accordion>
 
   <Accordion title="App attribution">

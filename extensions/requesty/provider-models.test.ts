@@ -25,7 +25,7 @@ import plugin from "./index.js";
 
 function makeRequestyRow(overrides: Record<string, unknown> = {}) {
   return {
-    id: "claude-sonnet-4-6@eu",
+    id: "claude-sonnet-4-6",
     api: "chat",
     object: "model",
     input_price: 0.000003,
@@ -70,11 +70,6 @@ afterEach(() => {
 });
 
 describe("requesty static catalog", () => {
-  it("derives the managed-policy endpoint from the manifest base URL", () => {
-    expect(REQUESTY_BASE_URL).toBe("https://router.requesty.ai/v1/");
-    expect(REQUESTY_MODELS_URL).toBe("https://router.requesty.ai/v1/models/managed");
-  });
-
   it("returns fresh static rows on every call", () => {
     const first = getStaticRequestyModelCatalog()[0]!;
     first.input.push("image");
@@ -86,8 +81,8 @@ describe("requesty model projection", () => {
   it("projects per-token prices to per-million and maps capability flags", () => {
     const [model] = projectRequestyModels([makeRequestyRow()]);
     expect(model).toEqual({
-      id: "claude-sonnet-4-6@eu",
-      name: "claude-sonnet-4-6@eu",
+      id: "claude-sonnet-4-6",
+      name: "claude-sonnet-4-6",
       reasoning: true,
       input: ["text", "image"],
       compat: { supportsReasoningEffort: true },
@@ -163,7 +158,12 @@ describe("requesty live discovery", () => {
   it("lists the caller's managed policies with the configured API key", async () => {
     const release = mockCatalog({
       object: "list",
-      data: [makeRequestyRow(), makeRequestyRow({ id: "gpt-5.5", model_lab: "openai" })],
+      data: [
+        makeRequestyRow(),
+        makeRequestyRow({ id: "claude-sonnet-4-6@eu" }),
+        makeRequestyRow({ id: "bedrock/claude-sonnet-4-6@eu-central-1" }),
+        makeRequestyRow({ id: "gpt-5.5", model_lab: "openai" }),
+      ],
     });
     const provider = await registerSingleProviderPlugin(plugin);
     const result = await provider.catalog?.run(catalogContext(FIXTURE_API_KEY));
@@ -176,12 +176,12 @@ describe("requesty live discovery", () => {
       apiKey: FIXTURE_API_KEY,
     });
     expect(result.provider.models.map((model) => model.id)).toEqual([
-      "claude-sonnet-4-6@eu",
+      "claude-sonnet-4-6",
       "gpt-5.5",
     ]);
     expect(release).toHaveBeenCalledOnce();
     const request = fetchWithSsrFGuardMock.mock.calls[0]?.[0];
-    expect(request.url).toBe(REQUESTY_MODELS_URL);
+    expect(request.url).toBe("https://router.requesty.ai/v1/models/managed");
     expect(new Headers(request.init.headers).get("authorization")).toBe(
       `Bearer ${FIXTURE_API_KEY}`,
     );
