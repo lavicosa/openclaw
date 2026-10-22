@@ -1,0 +1,35 @@
+{
+  "name": "@openclaw/requesty-provider",
+  "version": "2026.10.5",
+  "description": "OpenClaw Requesty provider plugin.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openclaw/openclaw"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@openclaw/plugin-sdk": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "install": {
+      "clawhubSpec": "clawhub:@openclaw/requesty-provider",
+      "npmSpec": "@openclaw/requesty-provider",
+      "defaultChoice": "npm",
+      "minHostVersion": ">=2026.9.9"
+    },
+    "compat": {
+      "pluginApi": ">=2026.10.5"
+    },
+    "build": {
+      "openclawVersion": "2026.10.5",
+      "bundledDist": false
+    },
+    "release": {
+      "publishToClawHub": true,
+      "publishToNpm": true
+    }
+  }
+}

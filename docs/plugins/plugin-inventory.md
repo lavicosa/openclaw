@@ -202,7 +202,7 @@ Each entry lists the package, distribution route, and description.
 
 ## Official external packages
 
-99 plugins
+100 plugins
 
 - **[acpx](/plugins/reference/acpx)** (`@openclaw/acpx`) - npm or ClawHub: `@openclaw/acpx`. OpenClaw ACP runtime backend with plugin-owned session and transport management.
 
@@ -343,6 +343,8 @@ Each entry lists the package, distribution route, and description.
 - **[radius](/plugins/reference/radius)** (`@openclaw/radius-provider`) - npm or ClawHub: `@openclaw/radius-provider`. Radius model gateway provider.
 
 - **[raft](/plugins/reference/raft)** (`@openclaw/raft`) - npm or ClawHub: `@openclaw/raft`. OpenClaw Raft channel plugin for secure CLI wake bridges.
+
+- **[requesty](/plugins/reference/requesty)** (`@openclaw/requesty-provider`) - npm or ClawHub: `@openclaw/requesty-provider`. Adds Requesty model provider support to OpenClaw.
 
 - **[searxng](/plugins/reference/searxng)** (`@openclaw/searxng-plugin`) - npm or ClawHub: `@openclaw/searxng-plugin`. Adds web search provider support.
 
