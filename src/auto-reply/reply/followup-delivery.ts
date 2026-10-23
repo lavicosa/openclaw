@@ -45,6 +45,7 @@ import {
 } from "./automation-reply-payloads.js";
 import { deliverBlockReply } from "./block-reply-delivery.js";
 import { resolveFollowupDeliveryPayloads } from "./followup-delivery-payloads.js";
+import { createFollowupSpeechPreparer } from "./followup-delivery-tts.js";
 import type { InternalGetReplyOptions } from "./get-reply.types.js";
 import { resolveOriginMessageProvider } from "./origin-routing.js";
 import { warnPrivateMessageToolFinal } from "./private-message-tool-final.js";
@@ -125,6 +126,7 @@ export async function resolveFollowupDeliveryDecision(params: {
   }
   const sourcePolicy = resolveSourceReplyVisibilityPolicy({
     cfg: turn.config,
+    scheduledAutomation: turn.queued.run.scheduledAutomation !== undefined,
     ctx: {
       ChatType: turn.queued.originatingChatType ?? turn.queued.run.chatType,
       InboundEventKind: turn.queued.currentInboundEventKind,
@@ -137,7 +139,10 @@ export async function resolveFollowupDeliveryDecision(params: {
   const terminalReplyExpectation = resolveFollowupReplyExpectation(turn.queued, turn.config);
   const isInteractive =
     isRequiredReplyExpectation(terminalReplyExpectation) ||
-    (!isSyntheticSourceReplyTurn({ inputProvenance: turn.queued.run.inputProvenance }) &&
+    (!isSyntheticSourceReplyTurn({
+      inputProvenance: turn.queued.run.inputProvenance,
+      scheduledAutomation: turn.queued.run.scheduledAutomation !== undefined,
+    }) &&
       !isInternalMessageChannel(
         turn.queued.originatingChannel ?? turn.queued.run.messageProvider,
       ) &&
@@ -216,6 +221,7 @@ export async function resolveFollowupDeliveryDecision(params: {
   const terminalRunFailed = execution.outcome.status === "failed";
   const missingReplyNoticeAllowed = shouldDeliverMissingReplyNotice({
     ...turn.queued.run,
+    scheduledAutomation: turn.queued.run.scheduledAutomation !== undefined,
     terminalReplyExpectation,
     trigger: turn.queued.run.internalEventExecution ? "event" : "user",
     currentInboundEventKind: turn.queued.currentInboundEventKind,
@@ -295,7 +301,6 @@ export async function resolveFollowupDeliveryDecision(params: {
           sourceReplyDeliveryMode: sourcePolicy.sourceReplyDeliveryMode,
           sendPolicyDenied: sourcePolicy.sendPolicyDenied,
           successfulSourceReplyDelivery: completedSourceDelivery,
-          isHeartbeat: false,
           isRoomEvent: false,
         });
   if (recovery.kind === "retry") {
@@ -538,7 +543,6 @@ export async function deliverFollowupDecision(params: {
   const typing = createTypingSignaler({
     typing: defaults.typing,
     mode: defaults.typingMode,
-    isHeartbeat: false,
   });
   const crossChannelFailures: ReplyPayload[] = [];
   const queuedPayloads: ReplyPayload[] = [];
@@ -565,7 +569,8 @@ export async function deliverFollowupDecision(params: {
   const origin = resolveOriginMessageProvider({ originatingChannel });
   const sameChannelOrigin = Boolean(origin && origin === provider);
   const crossChannelOrigin = Boolean(origin && provider && origin !== provider);
-  for (const payload of payloads) {
+  const prepareSpeech = createFollowupSpeechPreparer({ turn, defaults, kind });
+  for (let payload of payloads) {
     const providerRoute = deliveryPlan.resolveFollowupRoute({
       payload,
       originatingChannel,
@@ -596,6 +601,13 @@ export async function deliverFollowupDecision(params: {
       }
     }
     await typing.signalTextDelta(payload.text);
+    // The stalled recovery owner delivers its terminal notice after the operation aborts.
+    if (
+      turn.queued.stalledTurnRecovery !== true ||
+      !isReplyOperationStalledBeforeOutput(turn.operation)
+    ) {
+      payload = await prepareSpeech(payload, route);
+    }
     if (route !== "origin") {
       await dispatchPayload(payload);
     } else if (isRoutableChannel(originatingChannel) && originatingTo) {

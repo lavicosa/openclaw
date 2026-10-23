@@ -22,6 +22,8 @@ Model menus with more than eight choices include search. Filter by model name or
 
 When the Gateway rejects an invalid setting, **Settings not applied** keeps your draft and offers **Show reason**, **Retry**, and **Discard draft and reload**. Discard removes all unsaved configuration edits and reloads the saved settings. Edits entered while Discard waits for an earlier save remain pending; newer Form edits resume autosaving, and newer Raw edits remain available to save. Clearing a text field is an edit, not a discard: settings that accept an empty string keep that explicit value.
 
+Typing in Form fields copies the edited path instead of cloning and formatting the full configuration on every keystroke. Full JSON formatting happens when saving or opening **Advanced → Raw**. The Raw editor still shows the current draft, including newer edits made while an earlier save is in flight.
+
 Global model defaults apply to every agent. Switching the Settings agent while saving does not change the save target. If a save fails, **Retry** resubmits that change; after recovery, the controls follow the saved configuration, including later updates from another client.
 
 In **Models**, thinking choices follow the primary model's reported reasoning levels, including provider-specific levels. Fast-mode choices follow its reported speed capabilities, with **Ultrafast** shown separately from **On**. A saved preference that is no longer supported stays visible but cannot be selected anew. A saved account-pinned model does not borrow speed capabilities from another account's catalog; unverified speed preferences remain visible but unavailable for new selections. Switching models does not rewrite a saved preference; choose another supported value or **Default** to return to model policy. **Auto** is a timed fast-mode preference, not inheritance.
@@ -355,8 +357,10 @@ restarting the Gateway. Ordinary plugin config edits also apply automatically
 in the default hybrid reload mode. See
 [Apply changes and inspect](/plugins/manage-plugins#apply-changes-and-inspect)
 for application failures, cleanup warnings, and source-edit reloads.
-OAuth-backed MCP connectors need a one-time
-`openclaw mcp login <name>` from the CLI after they are added.
+Plugins that declare OAuth-backed MCP servers list them under **Accounts** on
+the plugin's page; an administrator selects **Connect** to sign in once after
+the plugin is added. `openclaw mcp login <name>` signs in only to servers
+defined under `mcp.servers`, not to servers a plugin declares.
 
 The page intentionally focuses on inventory, discovery, install, enablement,
 and removal. Use [`openclaw plugins`](/cli/plugins) for arbitrary npm, git, or
@@ -676,7 +680,7 @@ Typical workflow:
 1. Open **MCP** from the sidebar.
 2. Check the summary cards for total, enabled, OAuth, and filtered server counts.
 3. Review each server row for transport, enablement, auth, filters, timeouts, and command hints.
-4. Add, enable, disable, or remove servers directly on the MCP page. Choose Streamable HTTP, SSE, or stdio explicitly; stdio command lines accept quoted arguments such as paths with spaces. Use the **Plugins** page for one-click connectors and discovery.
+4. Add, enable, disable, or remove servers directly on the MCP page. Choose Streamable HTTP, SSE, or stdio explicitly; stdio command lines accept quoted arguments such as paths with spaces. Use the **Plugins** page for one-click plugin installs and discovery.
 5. Edit the scoped `mcp` config section for advanced server fields such as environment variables, working directories, headers, TLS/mTLS paths, OAuth metadata, tool filters, and Codex projection metadata.
 6. Use **Save** for a config write, or **Save & Publish** when the running Gateway should apply the changed config.
 7. Run `openclaw mcp status --verbose`, `openclaw mcp doctor --probe`, or `openclaw mcp reload` from a terminal for static diagnostics, live proof, or cached-runtime disposal.

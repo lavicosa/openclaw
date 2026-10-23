@@ -2,6 +2,7 @@ import { Errored, For, Loading, Show, createMemo, isPending, latest } from "soli
 import type { SessionProcessSummary } from "../../../../../packages/gateway-protocol/src/schema/session-processes.js";
 import { Icon } from "../../../components/solid/icon.tsx";
 import { useScrollState } from "../../../components/solid/scroll-state.ts";
+import { registerChatDetailsEnglish } from "../../../i18n/locales/en-chat-details.ts";
 import { registerChatSessionEnglish } from "../../../i18n/locales/en-chat-session.ts";
 import { registerEnglishCatalog, t } from "../../../lib/reactive/i18n.ts";
 import type { ProcessesPanelData } from "../processes-panel-data.ts";
@@ -10,6 +11,7 @@ import { ChatDetailsDesktopSection } from "./chat-details-desktop-section.tsx";
 import { createProcessesPresentation } from "./chat-processes-presentation.ts";
 
 registerEnglishCatalog(registerChatSessionEnglish);
+registerEnglishCatalog(registerChatDetailsEnglish);
 
 type Props = {
   /** Read the native host's projection; it owns observation, refresh and stop authority. */
@@ -170,10 +172,6 @@ export function ChatDetailsProcesses(props: Props) {
     </>
   );
   const retry = () => void props.processes()?.refresh();
-  const consumeRead = () => {
-    latest(presentation.read);
-    return null;
-  };
   const ReadContent = () => (
     <Errored
       fallback={(_error, reset) => (
@@ -187,7 +185,7 @@ export function ChatDetailsProcesses(props: Props) {
       )}
     >
       <Loading on={presentation.scope()} fallback={<Content loading retry={retry} />}>
-        {consumeRead()}
+        {(latest(presentation.read), null)}
         <Content loading={isPending(presentation.read)} retry={retry} />
       </Loading>
     </Errored>

@@ -17,12 +17,13 @@ import { showToast } from "../../../lib/toast.ts";
 import { createPullRequestCopy } from "./chat-pull-request-copy.ts";
 import {
   ChecksRows,
+  PullRequestCopyError,
   StatusWarning,
   STATE_LABEL_KEYS,
   type ChatPullRequestsProps,
 } from "./chat-pull-request-shared.tsx";
-import "./chat-ci-details.ts";
-import "./chat-ci-automation-control.ts";
+import "./chat-ci-details.tsx";
+import "./chat-ci-automation-control.tsx";
 
 const CHECK_ROLLUP = {
   failing: ["failed", "chat.pullRequests.checksFailed", "circleX"],
@@ -295,13 +296,7 @@ export function PullRequestActions(props: {
               {
                 kind: "content",
                 id: "copy-error",
-                content: (
-                  <Show when={clipboard.failed()}>
-                    <p class="chat-pr-menu__error" role="alert">
-                      {t("chat.pullRequests.copyFailed")}
-                    </p>
-                  </Show>
-                ),
+                content: <PullRequestCopyError clipboard={clipboard} />,
               },
             ],
           },

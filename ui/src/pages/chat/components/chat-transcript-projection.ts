@@ -1,27 +1,26 @@
-import { asNullableRecord } from "@openclaw/normalization-core/record-coerce";
 import type { JSX } from "@solidjs/web";
-import { CHAT_MESSAGE_MAX_CHARS } from "../../../../../packages/gateway-protocol/src/schema/chat-history-constants.js";
 import { currentThemeBranding } from "../../../app/theme-branding.ts";
 import { i18n } from "../../../i18n/index.ts";
 import { channelSenderAvatarMemoKey } from "../../../lib/chat/channel-sender-avatar.ts";
 import type { MessageGroup } from "../../../lib/chat/chat-types.ts";
-import { extractTextCached } from "../../../lib/chat/message-extract.ts";
 import { localParticipantIdentityKey } from "../../../lib/chat/sender-label.ts";
-import { messageRecoveryKey, resolveSourceMessageId } from "../chat-message-recovery.ts";
-import { resolveTurnRecap } from "../chat-progress.ts";
+import { extractToolCardsCached } from "../../../lib/chat/tool-cards.ts";
+import { chatItemGroups } from "../chat-agent-run-grouping.ts";
+import { assistantGroupCanOwnActiveRunStatus } from "../chat-assistant-reply.ts";
+import { resolveTurnRecap, shouldRenderQueuedSendInThread } from "../chat-progress.ts";
 import { projectChatReasoning } from "../chat-reasoning.ts";
 import { projectSubagentStatus } from "../chat-subagent-wait.ts";
 import type { SystemEventRenderItem } from "../chat-system-event-grouping.ts";
+import { persistedMessageEntryId } from "../chat-thread-items.ts";
 import {
-  assistantGroupCanOwnActiveRunStatus,
   buildCachedChatItems,
   getExpansionStateVersion,
   getExpandedToolCards,
   getExpandedUserMessages,
-  persistedMessageEntryId,
   setExpansionState,
   syncToolCardExpansionState,
 } from "../chat-thread.ts";
+import { readAsyncQuestions } from "./chat-async-question.ts";
 import { buildChatArchiveNotice } from "./chat-divider.ts";
 import type { NativeMessageGroupOptions } from "./chat-message-group-frame.ts";
 import { assistantMediaPolicyKey } from "./chat-message-media.ts";
@@ -43,7 +42,7 @@ import {
   projectTranscriptIndex,
   projectTranscriptRows,
 } from "./chat-transcript-message-index.ts";
-import { pruneTranscriptExpansions } from "./chat-transcript-recovery.ts";
+import { projectTranscriptRecovery } from "./chat-transcript-recovery.ts";
 import {
   GuardedTranscriptItem,
   guardChatRenderItems,
@@ -86,8 +85,7 @@ export function projectChatTranscript(
   const locale = i18n.getLocale();
   const searchFiltering = search.open && Boolean(search.query.trim());
   const expandedAssistantMessages = transcript.expandedAssistantMessages;
-  const recoveryKey = (id: string) => messageRecoveryKey(props.fullMessageAgentId, id);
-  pruneTranscriptExpansions(expandedAssistantMessages, props);
+  const recovery = projectTranscriptRecovery(expandedAssistantMessages, props);
   const subagents = projectSubagentStatus(props, searchFiltering);
   const chatItemsInput = {
     paneId: props.paneId,
@@ -190,47 +188,6 @@ export function projectChatTranscript(
       !(expanded ?? expandedToolCards.get(toolCardId) ?? false),
     );
   };
-  const toggleAssistantMessageExpanded = (messageId: string) => {
-    const key = recoveryKey(messageId);
-    const current = expandedAssistantMessages.get(key);
-    const loader = props.loadFullAssistantMessage;
-    if (!loader || current?.status === "loading") {
-      return;
-    }
-    const revision = (current?.revision ?? 0) + 1;
-    const pending = { status: "loading", revision } as const;
-    setExpansionState(expandedAssistantMessages, key, pending);
-    const completeLoad = (result: Awaited<ReturnType<typeof loader>>) => {
-      // A reset or source replacement can reuse both message id and revision.
-      // Only the exact pending entry may publish into this presentation.
-      if (expandedAssistantMessages.get(key) !== pending) {
-        return;
-      }
-      const markdown =
-        result?.ok && result.message && typeof result.message === "object"
-          ? (extractTextCached(result.message) ?? "")
-          : null;
-      setExpansionState(
-        expandedAssistantMessages,
-        key,
-        markdown === null
-          ? { status: "error", revision: revision + 1 }
-          : { status: "loaded", markdown, message: result?.message, revision: revision + 1 },
-      );
-    };
-    void loader({
-      sessionKey: props.sessionKey,
-      ...(props.fullMessageAgentId ? { agentId: props.fullMessageAgentId } : {}),
-      messageId,
-      ...(props.messages.some(
-        (message) =>
-          resolveSourceMessageId(message) === messageId &&
-          asNullableRecord(asNullableRecord(message)?.["__openclaw"])?.reason === "oversized",
-      )
-        ? { maxChars: CHAT_MESSAGE_MAX_CHARS }
-        : {}),
-    }).then(completeLoad, () => completeLoad(null));
-  };
   const hasRealtimeTalkConversation = (props.realtimeTalkConversation?.length ?? 0) > 0;
   const hasTypingActors = (props.typingActors?.length ?? 0) > 0;
   const hasLiveContent = Boolean(subagents.wait || hasTypingActors || hasRealtimeTalkConversation);
@@ -253,6 +210,13 @@ export function projectChatTranscript(
     agentId: props.currentAgentId,
     gatewayClient: props.gatewayClient,
     indicator: workingIndicator,
+    startingNewTurn: props.queue.some(
+      (item) =>
+        (item.sendState === "submitting" ||
+          item.sendState === "sending" ||
+          item.sendState === "waiting-model") &&
+        shouldRenderQueuedSendInThread(item),
+    ),
     activeRunId: props.runActive ? props.runId : undefined,
     row: activeSession,
     usageByRun: props.runUsageById,
@@ -358,7 +322,6 @@ export function projectChatTranscript(
       ...sharedMessageRenderOptions,
       messageReactions: props.messageReactions,
       onReact: props.onReact,
-      transcriptVisible: props.transcriptVisible,
       latestBrowserTabs: props.latestBrowserTabs,
       showReasoning,
       showToolCalls: props.showToolCalls,
@@ -371,9 +334,8 @@ export function projectChatTranscript(
         setExpansionState(expandedUserMessages, messageId, !expandedUserMessages.get(messageId));
       },
       loadFullAssistantMessage: props.loadFullAssistantMessage ?? undefined,
-      getAssistantMessageExpansion: (messageId: string) =>
-        expandedAssistantMessages.get(recoveryKey(messageId)),
-      onToggleAssistantMessageExpanded: toggleAssistantMessageExpanded,
+      getAssistantMessageExpansion: recovery.get,
+      onToggleAssistantMessageExpanded: recovery.expand,
       isToolExpanded: (toolCardId: string) => expandedToolCards.get(toolCardId) ?? false,
       onToggleToolExpanded: toggleToolCardExpanded,
       subagents: props,
@@ -417,7 +379,7 @@ export function projectChatTranscript(
   };
   // Only the working indicator shows live usage and subagent status, so rows
   // without one keep memoizing across usage and child-roster patches.
-  const workingUsageKey = JSON.stringify([runOutputTokens, subagents.statusKey]);
+  const workingUsageKey = JSON.stringify([runOutputTokens, subagents.statusKey, presented]);
   const liveStatusSignature = (item: ChatRenderItem): string => {
     if (item.kind === "stream-run") {
       return item.parts.some((part) => part.kind === "reading-indicator") ? workingUsageKey : "";
@@ -447,7 +409,27 @@ export function projectChatTranscript(
   };
   const renderItem = guardChatRenderItems(
     state,
-    (item) => [liveStatusSignature(item), ...transcriptReplyDependencies(item, loadedReplySources)],
+    (item) => {
+      const groups = chatItemGroups(item);
+      const hasTools = groups.some((group) =>
+        group.messages.some(({ message }) => extractToolCardsCached(message).length > 0),
+      );
+      const hasQuestions =
+        asyncQuestions &&
+        groups.some((group) => group.messages.some(({ message }) => readAsyncQuestions(message)));
+      return [
+        liveStatusSignature(item),
+        ...transcriptReplyDependencies(item, loadedReplySources),
+        // Durable drafts can restore the same map under a new callback generation.
+        hasQuestions ? asyncQuestions.drafts : undefined,
+        hasQuestions ? state.asyncQuestionGeneration : undefined,
+        // Tool plugins own foreground activity; launch cards also read the child roster.
+        hasTools ? presented : undefined,
+        hasTools ? subagents.rowsKey : undefined,
+        item.kind === "notice" ? props.onRetryRun : undefined,
+        item.kind === "notice" ? props.failureActionsRunId : undefined,
+      ];
+    },
     (item) => {
       if (item.kind === "system-event-group") {
         return { kind: "system-events", item };
@@ -574,18 +556,11 @@ export function projectChatTranscript(
     Math.floor(Date.now() / 60_000),
     props.latestBrowserTabs,
     props.sessionKey,
-    presented,
-    typeof props.transcriptVisible === "object"
-      ? props.transcriptVisible.isPresented()
-      : (props.transcriptVisible ?? true),
     // Invalidate settled rows when spawn metadata arrives, not on activity/title patches.
     avatarPlacement,
-    // Launch rows show each subagent's name, state and duration.
-    subagents.rowsKey,
     props.boardProvider,
     props.boardProvider?.canPinWidgets,
     props.boardProvider?.canPinMcpApps,
-    props.boardProvider?.snapshot$.value.revision,
     props.fullMessageAgentId,
     Boolean(props.loadFullAssistantMessage),
     showReasoning,
@@ -598,8 +573,6 @@ export function projectChatTranscript(
     Boolean(props.runFinalizing),
     props.startupLabel,
     props.retryAt,
-    props.onRetryRun,
-    props.failureActionsRunId,
     Boolean(props.waitingApproval),
     props.questionPrompts,
     state.asyncQuestionRevision,

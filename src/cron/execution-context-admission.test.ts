@@ -20,6 +20,8 @@ vi.mock("../config/sessions/session-delivery-generation.js", async (importOrigin
 
 const { admitScheduledOccurrence } = await import("./execution-context-admission.js");
 const { prepareCronRunAdmission } = await import("./run-admission.js");
+const { readScheduledToolTargets } = await import("./execution-context-registry.js");
+const { buildScheduledParentPauseNotice } = await import("./scheduled-occurrence.js");
 
 const PARENT_KEY = "agent:main:dashboard:parent";
 
@@ -171,6 +173,36 @@ describe("admitScheduledOccurrence", () => {
     );
   });
 
+  it("exposes a child's board and media targets to tool construction for the run", async () => {
+    readSessionEntryInWorker.mockResolvedValue({
+      sessionId: "parent-session",
+      lifecycleRevision: "rev-1",
+    });
+    const { occurrence, minted } = await mint(job(LINKED_JOB));
+    const admission = prepareCronRunAdmission({
+      cfg: {},
+      agentId: "main",
+      runId: "run-1",
+      sessionKey: "agent:main:cron:job-1:run:s1",
+      jobId: "job-1",
+      deliveryAttemptFence: null,
+      scheduledExecution: minted,
+    });
+    const admitted = await admission.preparedRunAdmission.admit("embedded");
+    const targets = readScheduledToolTargets(admitted);
+    expect(targets).toMatchObject({ boardSessionKey: PARENT_KEY });
+    expect(() => targets?.assertCurrent()).not.toThrow();
+    generationAssert.mockImplementationOnce(() => {
+      throw new Error("parent reset");
+    });
+    expect(() => targets?.assertCurrent()).toThrow("parent reset");
+    admission.close();
+    expect(readScheduledToolTargets(admitted)).toBeUndefined();
+    // Tools built during the run keep the assertion; it must refuse after the run settles.
+    expect(() => targets?.assertCurrent()).toThrow("settled");
+    occurrence.release();
+  });
+
   it("reports a removed parent as a pause without throwing", async () => {
     readSessionEntryInWorker.mockResolvedValue(undefined);
     const { minted } = await mint(
@@ -250,6 +282,101 @@ describe("admitScheduledOccurrence", () => {
       status: "ready",
       facts: { placement: "in-session", principal: { kind: "unbound-parent" } },
     });
+  });
+});
+
+describe("occurrence pause", () => {
+  const linked = job({
+    name: "Nightly ingest",
+    sourceConversation: {
+      sessionKey: PARENT_KEY,
+      sessionId: "parent-session",
+      lifecycleRevision: "rev-1",
+    },
+  });
+
+  it("does not read anything for jobs without an exact parent link", async () => {
+    expect((await admit(job())).pause).toBeUndefined();
+    expect(readSessionEntryInWorker).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["removed", undefined],
+    ["archived", { sessionId: "parent-session", lifecycleRevision: "rev-1", archivedAt: 1 }],
+  ] as const)("pauses when the parent is %s", async (reason, entry) => {
+    readSessionEntryInWorker.mockResolvedValue(entry);
+    const occurrence = await admit(linked);
+    expect(occurrence.pause).toEqual({ reason, parentSessionKey: PARENT_KEY });
+    expect(prepareSessionGenerationFacts).not.toHaveBeenCalled();
+  });
+
+  it("pauses when the parent's bound worktree is gone", async () => {
+    readSessionEntryInWorker.mockResolvedValue({
+      sessionId: "parent-session",
+      lifecycleRevision: "rev-1",
+      worktree: true,
+      spawnedCwd: "/nonexistent/openclaw-test-worktree",
+    });
+    const occurrence = await admit(linked);
+    expect(occurrence.pause).toEqual({
+      reason: "worktree-missing",
+      parentSessionKey: PARENT_KEY,
+      worktreePath: "/nonexistent/openclaw-test-worktree",
+    });
+    occurrence.release();
+  });
+
+  it("keeps running when the parent was reset", async () => {
+    readSessionEntryInWorker.mockResolvedValue({
+      sessionId: "new-session",
+      lifecycleRevision: "rev-2",
+    });
+    const occurrence = await admit(linked);
+    expect(occurrence.pause).toBeUndefined();
+    expect(occurrence.mint(RUN).result).toMatchObject({
+      status: "ready",
+      facts: { principal: { kind: "unbound-parent", parentSessionKey: PARENT_KEY } },
+    });
+  });
+
+  it("ignores the replacement session's worktree after a reset", async () => {
+    readSessionEntryInWorker.mockResolvedValue({
+      sessionId: "new-session",
+      lifecycleRevision: "rev-2",
+      worktree: true,
+      spawnedCwd: "/nonexistent/openclaw-test-worktree",
+    });
+    const occurrence = await admit(linked);
+    expect(occurrence.pause).toBeUndefined();
+    expect(occurrence.mint(RUN).result).toMatchObject({
+      status: "ready",
+      facts: { principal: { kind: "unbound-parent", parentSessionKey: PARENT_KEY } },
+    });
+  });
+
+  it("runs when the parent is current", async () => {
+    readSessionEntryInWorker.mockResolvedValue({
+      sessionId: "parent-session",
+      lifecycleRevision: "rev-1",
+    });
+    const occurrence = await admit(linked);
+    expect(occurrence.pause).toBeUndefined();
+    occurrence.release();
+  });
+
+  it("never pauses on a failed read", async () => {
+    readSessionEntryInWorker.mockRejectedValue(new Error("worker unavailable"));
+    expect((await admit(linked)).pause).toBeUndefined();
+  });
+
+  it("names the parent and the repair in the notice", () => {
+    const text = buildScheduledParentPauseNotice({
+      job: { id: "job-1", name: "Nightly ingest" },
+      pause: { reason: "archived", parentSessionKey: PARENT_KEY },
+    });
+    expect(text).toContain(`\`${PARENT_KEY}\``);
+    expect(text).toContain("it was archived");
+    expect(text).toContain("openclaw automations enable job-1");
   });
 });
 
