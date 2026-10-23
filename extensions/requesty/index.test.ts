@@ -112,12 +112,11 @@ describe("requesty provider plugin", () => {
     ).toBeUndefined();
   });
 
-  it("marks Claude models as prompt-cache TTL eligible regardless of region or hosting prefix", async () => {
+  it("marks Claude models as prompt-cache TTL eligible regardless of hosting prefix", async () => {
     const provider = await registerSingleProviderPlugin(plugin);
     const eligible = (modelId: string) =>
       provider.isCacheTtlEligible?.({ provider: "requesty", modelId } as never);
     expect(eligible("claude-sonnet-4-6")).toBe(true);
-    expect(eligible("claude-sonnet-4-6@eu")).toBe(true);
     expect(eligible("vertex/claude-sonnet-4-6")).toBe(true);
     expect(eligible("gpt-5.5")).toBe(false);
   });

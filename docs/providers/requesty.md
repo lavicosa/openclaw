@@ -74,10 +74,6 @@ addressed by bare name (`claude-sonnet-5-5`, `gpt-6-luna`, `gemini-3.8-flash`), 
 Requesty picks the hosting provider. When discovery is unavailable, the static catalog
 keeps those three defaults addressable.
 
-Regional policies with `@` suffixes are omitted from discovery: OpenClaw currently interprets
-those suffixes as auth-profile selectors, not routing regions. Do not select or
-configure `@eu` policies in OpenClaw; they cannot currently guarantee EU routing.
-
 Run `/models requesty` or `openclaw models list --provider requesty` to see the list for your
 key.
 

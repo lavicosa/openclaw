@@ -22,9 +22,8 @@ export const REQUESTY_DEFAULT_MODEL_REF = `${REQUESTY_PROVIDER_ID}/${REQUESTY_DE
 export const REQUESTY_DEFAULT_CONTEXT_WINDOW = REQUESTY_DEFAULT_MODEL.contextWindow;
 export const REQUESTY_DEFAULT_MAX_TOKENS = REQUESTY_DEFAULT_MODEL.maxTokens;
 
-// Claude policies carry region suffixes (`claude-sonnet-4-6@eu`) and operator rows
-// may keep hosting prefixes (`vertex/claude-sonnet-4-6`), so prompt-cache TTL
-// eligibility keys on the model segment alone.
+// Operator rows may keep hosting prefixes (`vertex/claude-sonnet-4-6`), so
+// prompt-cache TTL eligibility keys on the model segment alone.
 export function isRequestyAnthropicModel(modelId: string): boolean {
   return /(?:^|\/)claude-/i.test(modelId);
 }
@@ -76,8 +75,8 @@ export function projectRequestyModels(rows: readonly unknown[]): ModelDefinition
       continue;
     }
     const id = row.id.trim();
-    // Model selection interprets @suffix as an auth profile. Do not advertise
-    // regional policies until selection can preserve their routing suffix.
+    // Model selection reads a trailing @suffix as an auth profile, so regional
+    // policies (`claude-sonnet-4-6@eu`) would silently lose their routing.
     if (!id || id.includes("@") || discoveredIds.has(id) || row.api !== "chat") {
       continue;
     }

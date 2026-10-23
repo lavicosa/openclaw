@@ -5,9 +5,8 @@ const DATED_SNAPSHOT_SUFFIX = /^-(?:\d{4}-\d{2}-\d{2}|\d{8})$/u;
 
 /**
  * Requesty echoes the upstream lab's response id (`claude-sonnet-4-6`,
- * `gpt-5.5-2026-04-23`) while the requested id may carry a managed-policy region
- * suffix (`claude-sonnet-4-6@eu`) or an operator-authored hosting prefix
- * (`vertex/claude-sonnet-4-6`), so those reports name the same route.
+ * `gpt-5.5-2026-04-23`) while the requested id may carry an operator-authored
+ * hosting prefix (`vertex/claude-sonnet-4-6`), so those reports name the same route.
  */
 export function isResponseModelEquivalent({
   provider,
@@ -25,12 +24,9 @@ export function isResponseModelEquivalent({
   if (requested === response || requested.endsWith(`/${response}`)) {
     return true;
   }
-  // Hosting prefixes and region suffixes select a route, not a different model.
+  // Hosting prefixes select a route, not a different model.
   const separator = requested.indexOf("/");
-  const upstream = (separator === -1 ? requested : requested.slice(separator + 1)).replace(
-    /@[^@/]+$/u,
-    "",
-  );
+  const upstream = separator === -1 ? requested : requested.slice(separator + 1);
   return (
     upstream === response ||
     (response.startsWith(upstream) && DATED_SNAPSHOT_SUFFIX.test(response.slice(upstream.length)))

@@ -214,9 +214,7 @@ describe("requesty live discovery", () => {
 describe("requesty anthropic model detection", () => {
   it.each([
     ["claude-sonnet-4-6", true],
-    ["claude-sonnet-4-6@eu", true],
     ["vertex/claude-opus-4-7", true],
-    ["bedrock/claude-sonnet-4-6@eu-central-1", true],
     ["gpt-5.5", false],
     ["deepinfra/anthropic-style/not-claude", false],
   ])("%s -> %s", (modelId, expected) => {
