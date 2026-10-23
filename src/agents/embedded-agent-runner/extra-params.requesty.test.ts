@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
-import requestyPlugin from "../../../extensions/requesty/index.js";
 import { createAssistantMessageEventStream } from "../../llm/utils/event-stream.js";
 import { attachModelProviderRuntimePluginHandle } from "../../plugins/provider-hook-runtime.js";
+import { loadBundledPluginFacade } from "../../test-utils/bundled-plugin-public-surface.js";
 import { registerSingleProviderPlugin } from "../../test-utils/plugin-registration.js";
 import type { StreamFn } from "../runtime/index.js";
 import { makeProviderModelFixture } from "../test-helpers/provider-model-fixture.js";
@@ -10,6 +10,9 @@ import { applyExtraParamsToAgent } from "./extra-params.js";
 it.each(["deepseek-v4-pro", "mimo-v2.5-pro"])(
   "keeps reasoning replay and attribution on Requesty %s",
   async (modelId) => {
+    const { default: requestyPlugin } = await loadBundledPluginFacade<{
+      default: Parameters<typeof registerSingleProviderPlugin>[0];
+    }>({ pluginId: "requesty", artifactBasename: "index.js" });
     const plugin = await registerSingleProviderPlugin(requestyPlugin);
     const model = attachModelProviderRuntimePluginHandle(
       makeProviderModelFixture({
