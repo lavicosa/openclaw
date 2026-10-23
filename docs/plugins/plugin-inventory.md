@@ -52,7 +52,7 @@ Each entry lists the package, distribution route, and description.
 
 ## Core npm package
 
-73 plugins
+74 plugins
 
 - **[a2a](/plugins/reference/a2a)** (`@openclaw/a2a`) - included in OpenClaw. A2A v1.0 Agent-to-Agent protocol channel plugin.
 
@@ -172,6 +172,8 @@ Each entry lists the package, distribution route, and description.
 
 - **[reef](/plugins/reference/reef)** (`@openclaw/reef`) - included in OpenClaw. Guarded end-to-end encrypted claw channel.
 
+- **[requesty](/plugins/reference/requesty)** (`@openclaw/requesty-provider`) - included in OpenClaw. Adds Requesty model provider support to OpenClaw.
+
 - **[runway](/plugins/reference/runway)** (`@openclaw/runway-provider`) - included in OpenClaw. Adds video generation provider support.
 
 - **[senseaudio](/plugins/reference/senseaudio)** (`@openclaw/senseaudio-provider`) - included in OpenClaw. Adds media understanding provider support.
@@ -202,7 +204,7 @@ Each entry lists the package, distribution route, and description.
 
 ## Official external packages
 
-100 plugins
+99 plugins
 
 - **[acpx](/plugins/reference/acpx)** (`@openclaw/acpx`) - npm or ClawHub: `@openclaw/acpx`. OpenClaw ACP runtime backend with plugin-owned session and transport management.
 
@@ -343,8 +345,6 @@ Each entry lists the package, distribution route, and description.
 - **[radius](/plugins/reference/radius)** (`@openclaw/radius-provider`) - npm or ClawHub: `@openclaw/radius-provider`. Radius model gateway provider.
 
 - **[raft](/plugins/reference/raft)** (`@openclaw/raft`) - npm or ClawHub: `@openclaw/raft`. OpenClaw Raft channel plugin for secure CLI wake bridges.
-
-- **[requesty](/plugins/reference/requesty)** (`@openclaw/requesty-provider`) - npm or ClawHub: `@openclaw/requesty-provider`. Adds Requesty model provider support to OpenClaw.
 
 - **[searxng](/plugins/reference/searxng)** (`@openclaw/searxng-plugin`) - npm or ClawHub: `@openclaw/searxng-plugin`. Adds web search provider support.
 

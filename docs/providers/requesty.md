@@ -12,20 +12,14 @@ OpenAI-compatible endpoint and API key, with per-request pricing and prompt cach
 | Property      | Value                                    |
 | ------------- | ---------------------------------------- |
 | Provider      | `requesty`                               |
-| Package       | `@openclaw/requesty-provider`            |
+| Distribution  | Bundled with OpenClaw                    |
 | Auth          | `REQUESTY_API_KEY`                       |
 | API           | OpenAI-compatible                        |
 | Base URL      | `https://router.requesty.ai/v1/`         |
 | Model catalog | Auto-discovered via `/v1/models/managed` |
 
-## Install plugin
-
-```bash
-openclaw plugins install @openclaw/requesty-provider
-```
-
-Installation applies to a running Gateway automatically; otherwise it takes effect
-on the next startup. See [Apply changes and inspect](/plugins/manage-plugins#apply-changes-and-inspect).
+Requesty ships with OpenClaw as a bundled provider plugin. No separate plugin
+installation is required; it updates together with OpenClaw.
 
 ## Setup
 

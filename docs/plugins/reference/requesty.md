@@ -15,7 +15,7 @@ Adds Requesty model provider support to OpenClaw.
 ## Distribution
 
 - Package: `@openclaw/requesty-provider`
-- Install route: npm or ClawHub: `@openclaw/requesty-provider`
+- Install route: included in OpenClaw
 
 ## Surface
 

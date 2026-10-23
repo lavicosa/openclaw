@@ -362,7 +362,6 @@
     "!dist/extensions/qianfan/**",
     "!dist/extensions/raft/**",
     "!dist/extensions/radius/**",
-    "!dist/extensions/requesty/**",
     "!dist/extensions/pixverse/**",
     "!dist/extensions/qa-channel/**",
     "!dist/extensions/qa-lab/**",
